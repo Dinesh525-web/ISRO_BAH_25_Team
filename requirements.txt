@@ -1,0 +1,139 @@
+# =============================================================================
+# MOSDAC AI Knowledge Navigator – Production Dependencies
+# Python 3.10+ Compatible | Updated July 2025
+# =============================================================================
+
+# ── Web Framework & Server ────────────────────────────────────────────────────
+fastapi==0.115.4
+uvicorn[standard]==0.35.0
+gunicorn==23.0.0
+
+# ── Frontend Interfaces ───────────────────────────────────────────────────────
+streamlit==1.40.0
+gradio==5.5.0
+
+# ── Core Data Processing ──────────────────────────────────────────────────────
+pandas==2.2.3
+numpy==2.0.0
+requests==2.32.3
+beautifulsoup4==4.12.3
+lxml==5.3.0
+
+# ── Web Scraping & Automation ─────────────────────────────────────────────────
+scrapy==2.12.0
+scrapy-playwright==0.0.41
+playwright==1.48.0
+selenium==4.25.0
+httpx==0.28.1
+aiohttp==3.11.10
+tenacity==9.0.0
+
+# ── AI/ML & RAG Stack ─────────────────────────────────────────────────────────
+langchain==0.3.26
+langchain-core>=0.3.66,<1.0.0
+langsmith==0.3.45
+langchain-community==0.3.22
+langchain-openai==0.2.10
+openai==1.62.0
+sentence-transformers==3.3.1
+transformers==4.46.3
+torch==2.5.1+cpu
+torchvision==0.20.1+cpu
+torchaudio==2.5.1+cpu
+
+# Extra index for CPU‐only PyTorch wheels
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# ── Vector Stores & Search ────────────────────────────────────────────────────
+faiss-cpu==1.9.0
+chromadb==0.5.23
+pinecone==7.3.0
+pinecone[grpc]==7.3.0
+pinecone[asyncio]==7.3.0
+qdrant-client==1.12.1
+
+# ── Graph Database ────────────────────────────────────────────────────────────
+neo4j==5.26.0
+neo4j-graphrag==1.8.0
+
+# ── Relational DB & ORM ───────────────────────────────────────────────────────
+sqlalchemy==1.4.54
+alembic==1.14.0
+psycopg2-binary==2.9.10
+asyncpg==0.30.0
+
+# ── Caching & Messaging ───────────────────────────────────────────────────────
+redis==5.2.0
+celery==5.4.0
+
+# ── Configuration & Env ───────────────────────────────────────────────────────
+python-dotenv==1.0.1
+pydantic==2.10.4
+pydantic-settings==2.7.0
+pyyaml==6.0.2
+click==8.1.7
+
+# ── Monitoring & Logging ──────────────────────────────────────────────────────
+prometheus-client==0.21.1
+prometheus-fastapi-instrumentator==7.0.0
+structlog==24.4.0
+python-json-logger==2.0.7
+sentry-sdk[fastapi]==2.19.0
+
+# ── Security & Auth ──────────────────────────────────────────────────────────
+cryptography==44.0.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.12
+
+# ── Middleware & Rate Limiting ─────────────────────────────────────────────────
+slowapi==0.1.9
+starlette-context==0.3.6
+
+# ── Testing & QA ─────────────────────────────────────────────────────────────
+pytest==8.3.4
+pytest-asyncio==0.25.0
+pytest-cov==6.0.0
+pytest-mock==3.14.0
+pytest-xdist==3.6.0
+faker==33.1.0
+
+# ── Dev & Code Quality ────────────────────────────────────────────────────────
+black==24.10.0
+isort==5.13.2
+flake8==7.1.1
+mypy==1.13.0
+pre-commit==4.0.1
+ruff==0.8.4
+
+# ── Documentation ─────────────────────────────────────────────────────────────
+mkdocs==1.6.1
+mkdocs-material==9.5.49
+
+# ── Scientific & Visualization (Optional) ─────────────────────────────────────
+scipy==1.14.1
+scikit-learn==1.6.0
+matplotlib==3.9.3
+plotly==5.24.1
+
+# ── NLP & Text Processing ────────────────────────────────────────────────────
+nltk==3.9.1
+spacy==3.8.2
+textstat==0.7.4
+
+# ── File & Document Processing ────────────────────────────────────────────────
+PyMuPDF==1.25.1
+python-docx==1.1.2
+openpyxl==3.1.5
+pillow==11.0.0
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+tqdm==4.67.1
+python-dateutil==2.9.0.post0
+pytz==2024.2
+packaging==24.2
+
+# ── Model Optimization (Optional) ─────────────────────────────────────────────
+optimum==1.24.0
+onnx==1.17.0
+onnxruntime==1.20.1
