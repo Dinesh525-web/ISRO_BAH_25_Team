@@ -1,0 +1,11 @@
+FROM node:18-alpine
+
+WORKDIR /app
+COPY src/frontend/react_app/package*.json ./
+RUN npm ci
+
+COPY src/frontend/react_app ./
+RUN npm run build
+
+EXPOSE 3000
+CMD ["npm", "start"]
