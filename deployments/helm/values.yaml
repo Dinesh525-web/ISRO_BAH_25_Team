@@ -1,0 +1,274 @@
+# Default values for MOSDAC AI Navigator
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Application configuration
+app:
+  name: mosdac-ai-navigator
+  version: "1.0.0"
+  environment: development
+
+# Backend configuration
+backend:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: ghcr.io/gravitasops/mosdac-ai/backend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+    
+  service:
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+    
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /
+    hosts:
+      - host: api.mosdac-ai.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+    
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 2Gi
+      
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+    
+  env:
+    - name: ENVIRONMENT
+      value: "development"
+    - name: DEBUG
+      value: "false"
+    - name: LOG_LEVEL
+      value: "INFO"
+      
+  secrets:
+    DATABASE_URL: ""
+    REDIS_URL: ""
+    NEO4J_URI: ""
+    NEO4J_PASSWORD: ""
+    OPENAI_API_KEY: ""
+    SECRET_KEY: ""
+    
+  healthCheck:
+    enabled: true
+    path: /api/v1/health/
+    
+  volumes:
+    - name: logs
+      emptyDir:
+        sizeLimit: 1Gi
+    - name: data
+      persistentVolumeClaim:
+        claimName: backend-data
+        
+  volumeMounts:
+    - name: logs
+      mountPath: /app/logs
+    - name: data
+      mountPath: /app/data
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: ghcr.io/gravitasops/mosdac-ai/frontend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+    
+  service:
+    type: ClusterIP
+    port: 3000
+    targetPort: 3000
+    
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations: {}
+    hosts:
+      - host: mosdac-ai.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+    
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+      
+  env:
+    - name: REACT_APP_API_URL
+      value: "http://api.mosdac-ai.local"
+    - name: REACT_APP_VERSION
+      value: "1.0.0"
+
+# Streamlit dashboard configuration
+streamlit:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    repository: ghcr.io/gravitasops/mosdac-ai/streamlit
+    tag: "latest"
+    pullPolicy: IfNotPresent
+    
+  service:
+    type: ClusterIP
+    port: 8501
+    targetPort: 8501
+    
+  ingress:
+    enabled: true
+    className: "nginx"
+    hosts:
+      - host: dashboard.mosdac-ai.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+    
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+# Database configurations
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "devpassword"
+    username: "mosdac_user"
+    password: "devpassword"
+    database: "mosdac"
+  architecture: standalone
+  primary:
+    persistence:
+      enabled: true
+      size: 100Gi
+      storageClass: ""
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 2Gi
+    initdb:
+      scripts:
+        01_init.sql: |
+          CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+          CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+          CREATE SCHEMA IF NOT EXISTS app;
+
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: "devpassword"
+  architecture: standalone
+  master:
+    persistence:
+      enabled: true
+      size: 20Gi
+    resources:
+      limits:
+        cpu: 500m
+        memory: 2Gi
+      requests:
+        cpu: 200m
+        memory: 1Gi
+
+neo4j:
+  enabled: true
+  neo4j:
+    password: "devpassword"
+  core:
+    persistentVolume:
+      size: 100Gi
+    resources:
+      cpu: "2"
+      memory: "8Gi"
+  readReplica:
+    resources:
+      cpu: "1"
+      memory: "4Gi"
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  
+  prometheus:
+    enabled: true
+    server:
+      persistentVolume:
+        size: 50Gi
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 500m
+          memory: 1Gi
+          
+  grafana:
+    enabled: true
+    adminPassword: "admin"
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 200m
+        memory: 512Mi
+
+# Security configuration
+networkPolicy:
+  enabled: false
+
+podSecurityPolicy:
+  enabled: false
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Node selection and tolerations
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
