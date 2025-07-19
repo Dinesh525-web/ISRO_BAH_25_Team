@@ -1,0 +1,191 @@
+version: '3.8'
+
+services:
+  # Reverse proxy and load balancer
+  traefik:
+    image: traefik:v2.10
+    container_name: mosdac-traefik
+    restart: unless-stopped
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.email=admin@mosdac-ai.com
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --log.level=INFO
+      - --accesslog=true
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-letsencrypt:/letsencrypt
+    networks:
+      - mosdac-network
+
+  # Backend API service
+  backend:
+    build:
+      context: ../../
+      dockerfile: deployments/docker/Dockerfile.backend
+    container_name: mosdac-backend
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - DATABASE_URL=postgresql://mosdac_user:${POSTGRES_PASSWORD:-devpassword}@postgres:5432/mosdac
+      - REDIS_URL=redis://redis:6379/0
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-devpassword}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      neo4j:
+        condition: service_started
+    volumes:
+      - backend-logs:/app/logs
+      - backend-data:/app/data
+    networks:
+      - mosdac-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`localhost`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend React application
+  frontend:
+    build:
+      context: ../../
+      dockerfile: deployments/docker/Dockerfile.frontend
+      args:
+        - REACT_APP_API_URL=http://localhost/api
+        - REACT_APP_VERSION=1.0.0
+    container_name: mosdac-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - mosdac-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`localhost`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Streamlit dashboard
+  streamlit:
+    build:
+      context: ../../
+      dockerfile: deployments/docker/Dockerfile.streamlit
+    container_name: mosdac-streamlit
+    restart: unless-stopped
+    environment:
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - mosdac-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.streamlit.rule=Host(`dashboard.localhost`)"
+      - "traefik.http.routers.streamlit.entrypoints=web"
+      - "traefik.http.services.streamlit.loadbalancer.server.port=8501"
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    container_name: mosdac-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=mosdac
+      - POSTGRES_USER=mosdac_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-devpassword}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - mosdac-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mosdac_user -d mosdac"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Redis cache
+  redis:
+    image: redis:7-alpine
+    container_name: mosdac-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-devpassword}
+    volumes:
+      - redis-data:/data
+    networks:
+      - mosdac-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "auth", "${REDIS_PASSWORD:-devpassword}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Neo4j graph database
+  neo4j:
+    image: neo4j:5.14-community
+    container_name: mosdac-neo4j
+    restart: unless-stopped
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-devpassword}
+      - NEO4J_dbms_memory_heap_initial__size=512m
+      - NEO4J_dbms_memory_heap_max__size=2G
+      - NEO4J_dbms_memory_pagecache_size=1G
+      - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    networks:
+      - mosdac-network
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD:-devpassword}", "RETURN 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  traefik-letsencrypt:
+  postgres-data:
+  redis-data:
+  neo4j-data:
+  neo4j-logs:
+  backend-logs:
+  backend-data:
+
+networks:
+  mosdac-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
