@@ -1,0 +1,66 @@
+---
+- name: Install Node.js
+  apt:
+    deb: https://deb.nodesource.com/setup_18.x
+    state: present
+  when: ansible_os_family == "Debian"
+  
+- name: Update apt cache after Node.js installation
+  apt:
+    update_cache: yes
+    
+- name: Install Node.js and npm
+  apt:
+    name:
+      - nodejs
+      - nginx
+    state: present
+    
+- name: Create frontend application directory
+  file:
+    path: /opt/mosdac-ai/frontend
+    state: directory
+    mode: '0755'
+    
+- name: Copy frontend source code
+  synchronize:
+    src: ../../../../src/frontend/react_app/
+    dest: /opt/mosdac-ai/frontend/
+    delete: yes
+    rsync_opts:
+      - "--exclude=node_modules"
+      - "--exclude=build"
+      - "--exclude=.git"
+      
+- name: Install frontend dependencies
+  npm:
+    path: /opt/mosdac-ai/frontend
+    state: present
+    
+- name: Build frontend application
+  command: npm run build
+  args:
+    chdir: /opt/mosdac-ai/frontend
+  environment:
+    REACT_APP_API_URL: "{{ api_url }}"
+    REACT_APP_VERSION: "{{ app_version }}"
+    
+- name: Configure nginx for frontend
+  template:
+    src: nginx-frontend.conf.j2
+    dest: /etc/nginx/sites-available/mosdac-frontend
+    mode: '0644'
+  notify: reload nginx
+  
+- name: Enable nginx site
+  file:
+    src: /etc/nginx/sites-available/mosdac-frontend
+    dest: /etc/nginx/sites-enabled/mosdac-frontend
+    state: link
+  notify: reload nginx
+  
+- name: Remove default nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: reload nginx

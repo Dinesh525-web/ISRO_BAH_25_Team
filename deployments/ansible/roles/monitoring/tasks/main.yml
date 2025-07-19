@@ -1,0 +1,59 @@
+---
+- name: Install monitoring tools
+  apt:
+    name:
+      - htop
+      - iotop
+      - netstat-nat
+      - tcpdump
+      - strace
+    state: present
+  when: ansible_os_family == "Debian"
+  
+- name: Install Prometheus Node Exporter
+  get_url:
+    url: "https://github.com/prometheus/node_exporter/releases/download/v1.6.1/node_exporter-1.6.1.linux-amd64.tar.gz"
+    dest: /tmp/node_exporter.tar.gz
+    mode: '0644'
+    
+- name: Extract Node Exporter
+  unarchive:
+    src: /tmp/node_exporter.tar.gz
+    dest: /tmp/
+    remote_src: yes
+    
+- name: Install Node Exporter binary
+  copy:
+    src: /tmp/node_exporter-1.6.1.linux-amd64/node_exporter
+    dest: /usr/local/bin/node_exporter
+    mode: '0755'
+    remote_src: yes
+    
+- name: Create Node Exporter systemd service
+  template:
+    src: node-exporter.service.j2
+    dest: /etc/systemd/system/node-exporter.service
+    mode: '0644'
+  notify:
+    - daemon reload
+    - restart node-exporter
+    
+- name: Enable and start Node Exporter
+  systemd:
+    name: node-exporter
+    enabled: yes
+    state: started
+    daemon_reload: yes
+    
+- name: Setup log monitoring
+  cron:
+    name: "Log monitoring for MOSDAC AI"
+    minute: "*/5"
+    job: "/opt/mosdac-ai/scripts/log-monitor.sh"
+    
+- name: Setup disk space monitoring
+  cron:
+    name: "Disk space monitoring"
+    minute: "0"
+    hour: "*/6"
+    job: "/opt/mosdac-ai/scripts/disk-monitor.sh"

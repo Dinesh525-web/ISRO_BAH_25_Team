@@ -1,0 +1,78 @@
+---
+- name: Deploy MOSDAC AI Knowledge Navigator
+  hosts: mosdac_servers
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    app_name: mosdac-ai
+    app_version: "{{ lookup('env', 'APP_VERSION') | default('1.0.0') }}"
+    environment: "{{ env | default('production') }}"
+    docker_compose_version: "2.21.0"
+    
+  pre_tasks:
+    - name: Update system packages
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+      
+    - name: Install required system packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - python3-pip
+          - git
+        state: present
+      when: ansible_os_family == "Debian"
+
+  roles:
+    - role: docker
+      tags: [docker]
+    - role: backend
+      tags: [backend, app]
+    - role: frontend
+      tags: [frontend, app]
+    - role: database
+      tags: [database, infrastructure]
+    - role: monitoring
+      tags: [monitoring, observability]
+    
+  post_tasks:
+    - name: Verify deployment
+      uri:
+        url: "http://{{ ansible_default_ipv4.address }}/api/v1/health/"
+        method: GET
+        status_code: 200
+      retries: 10
+      delay: 30
+      tags: [verification]
+      
+    - name: Send deployment notification
+      mail:
+        to: "{{ notification_email | default('admin@example.com') }}"
+        subject: "MOSDAC AI Deployment Complete"
+        body: |
+          Deployment of {{ app_name }} version {{ app_version }} 
+          to {{ environment }} environment completed successfully.
+          
+          Server: {{ ansible_hostname }}
+          IP: {{ ansible_default_ipv4.address }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+      when: notification_email is defined
+      tags: [notification]
+
+  handlers:
+    - name: restart docker
+      service:
+        name: docker
+        state: restarted
+        
+    - name: reload nginx
+      service:
+        name: nginx
+        state: reloaded

@@ -1,0 +1,45 @@
+---
+- name: Create backend application directory
+  file:
+    path: /opt/mosdac-ai/backend
+    state: directory
+    mode: '0755'
+    
+- name: Copy backend source code
+  synchronize:
+    src: ../../../../src/backend/
+    dest: /opt/mosdac-ai/backend/
+    delete: yes
+    rsync_opts:
+      - "--exclude=__pycache__"
+      - "--exclude=*.pyc"
+      - "--exclude=.pytest_cache"
+      - "--exclude=logs/*"
+      
+- name: Create backend configuration
+  template:
+    src: backend.env.j2
+    dest: /opt/mosdac-ai/backend/.env
+    mode: '0600'
+    
+- name: Install Python dependencies
+  pip:
+    requirements: /opt/mosdac-ai/backend/requirements.txt
+    virtualenv: /opt/mosdac-ai/backend/venv
+    virtualenv_python: python3.11
+    
+- name: Create backend systemd service
+  template:
+    src: mosdac-backend.service.j2
+    dest: /etc/systemd/system/mosdac-backend.service
+    mode: '0644'
+  notify:
+    - daemon reload
+    - restart backend
+    
+- name: Enable and start backend service
+  systemd:
+    name: mosdac-backend
+    enabled: yes
+    state: started
+    daemon_reload: yes

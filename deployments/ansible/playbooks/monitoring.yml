@@ -1,0 +1,87 @@
+---
+- name: Setup Monitoring for MOSDAC AI
+  hosts: mosdac_servers
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    monitoring_dir: "/opt/monitoring"
+    grafana_admin_password: "{{ vault_grafana_password }}"
+    prometheus_retention: "30d"
+    
+  tasks:
+    - name: Create monitoring directory
+      file:
+        path: "{{ monitoring_dir }}"
+        state: directory
+        mode: '0755'
+        
+    - name: Deploy Prometheus configuration
+      template:
+        src: prometheus.yml.j2
+        dest: "{{ monitoring_dir }}/prometheus.yml"
+        mode: '0644'
+      notify: restart prometheus
+      
+    - name: Deploy Grafana provisioning
+      template:
+        src: "{{ item }}.j2"
+        dest: "{{ monitoring_dir }}/grafana/{{ item }}"
+        mode: '0644'
+      loop:
+        - datasource.yml
+        - dashboard.yml
+      notify: restart grafana
+      
+    - name: Setup log rotation for application logs
+      template:
+        src: logrotate-mosdac.j2
+        dest: /etc/logrotate.d/mosdac-ai
+        mode: '0644'
+        
+    - name: Configure Prometheus Node Exporter
+      systemd:
+        name: prometheus-node-exporter
+        enabled: yes
+        state: started
+        
+    - name: Setup monitoring alerts
+      template:
+        src: alert-rules.yml.j2
+        dest: "{{ monitoring_dir }}/alert-rules.yml"
+        mode: '0644'
+      notify: reload prometheus
+      
+    - name: Install and configure fail2ban
+      apt:
+        name: fail2ban
+        state: present
+      when: ansible_os_family == "Debian"
+      
+    - name: Configure fail2ban for application
+      template:
+        src: jail.local.j2
+        dest: /etc/fail2ban/jail.local
+        mode: '0644'
+      notify: restart fail2ban
+      
+  handlers:
+    - name: restart prometheus
+      community.docker.docker_container:
+        name: mosdac-prometheus
+        restart: yes
+        
+    - name: restart grafana
+      community.docker.docker_container:
+        name: mosdac-grafana
+        restart: yes
+        
+    - name: reload prometheus
+      uri:
+        url: "http://localhost:9090/-/reload"
+        method: POST
+        
+    - name: restart fail2ban
+      service:
+        name: fail2ban
+        state: restarted

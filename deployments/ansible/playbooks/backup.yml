@@ -1,0 +1,83 @@
+---
+- name: Backup MOSDAC AI Data
+  hosts: mosdac_servers
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    backup_dir: "/opt/backups/mosdac-ai"
+    backup_retention_days: 30
+    timestamp: "{{ ansible_date_time.epoch }}"
+    backup_name: "mosdac-backup-{{ timestamp }}"
+    
+  tasks:
+    - name: Create backup directory
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: '0755'
+        
+    - name: Stop application containers
+      community.docker.docker_compose:
+        project_src: /opt/mosdac-ai
+        stopped: yes
+      tags: [stop-services]
+      
+    - name: Backup PostgreSQL database
+      postgresql_db:
+        name: mosdac
+        state: dump
+        target: "{{ backup_dir }}/{{ backup_name }}-postgres.sql"
+      vars:
+        ansible_python_interpreter: /usr/bin/python3
+      tags: [database-backup]
+      
+    - name: Backup Redis data
+      command: >
+        docker run --rm -v mosdac-ai_redis-data:/data -v {{ backup_dir }}:/backup
+        redis:7-alpine tar czf /backup/{{ backup_name }}-redis.tar.gz -C /data .
+      tags: [redis-backup]
+      
+    - name: Backup Neo4j data
+      command: >
+        docker run --rm -v mosdac-ai_neo4j-data:/data -v {{ backup_dir }}:/backup
+        neo4j:5.14 tar czf /backup/{{ backup_name }}-neo4j.tar.gz -C /data .
+      tags: [neo4j-backup]
+      
+    - name: Backup application data
+      archive:
+        path: /opt/mosdac-ai/data
+        dest: "{{ backup_dir }}/{{ backup_name }}-app-data.tar.gz"
+        format: gz
+      tags: [app-backup]
+      
+    - name: Start application containers
+      community.docker.docker_compose:
+        project_src: /opt/mosdac-ai
+        state: present
+      tags: [start-services]
+      
+    - name: Remove old backups
+      find:
+        paths: "{{ backup_dir }}"
+        age: "{{ backup_retention_days }}d"
+        patterns: "mosdac-backup-*"
+      register: old_backups
+      
+    - name: Delete old backup files
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_backups.files }}"
+      
+    - name: Create backup manifest
+      template:
+        src: backup-manifest.json.j2
+        dest: "{{ backup_dir }}/{{ backup_name }}-manifest.json"
+        mode: '0644'
+      vars:
+        backup_files:
+          - "{{ backup_name }}-postgres.sql"
+          - "{{ backup_name }}-redis.tar.gz"
+          - "{{ backup_name }}-neo4j.tar.gz"
+          - "{{ backup_name }}-app-data.tar.gz"

@@ -1,0 +1,64 @@
+---
+- name: Install PostgreSQL
+  apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+      - python3-psycopg2
+    state: present
+  when: ansible_os_family == "Debian"
+  
+- name: Start and enable PostgreSQL
+  systemd:
+    name: postgresql
+    enabled: yes
+    state: started
+    
+- name: Create application database
+  postgresql_db:
+    name: mosdac
+    encoding: UTF-8
+    locale: en_US.UTF-8
+    template: template0
+  become_user: postgres
+  
+- name: Create database user
+  postgresql_user:
+    name: mosdac_user
+    password: "{{ database_password }}"
+    priv: "mosdac:ALL"
+    expires: infinity
+  become_user: postgres
+  
+- name: Configure PostgreSQL
+  template:
+    src: postgresql.conf.j2
+    dest: /etc/postgresql/15/main/postgresql.conf
+    backup: yes
+  notify: restart postgresql
+  
+- name: Configure PostgreSQL authentication
+  template:
+    src: pg_hba.conf.j2
+    dest: /etc/postgresql/15/main/pg_hba.conf
+    backup: yes
+  notify: restart postgresql
+  
+- name: Install Redis
+  apt:
+    name: redis-server
+    state: present
+  when: ansible_os_family == "Debian"
+  
+- name: Configure Redis
+  template:
+    src: redis.conf.j2
+    dest: /etc/redis/redis.conf
+    backup: yes
+  notify: restart redis
+  
+- name: Start and enable Redis
+  systemd:
+    name: redis-server
+    enabled: yes
+    state: started
