@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mosdac-ai
+  labels:
+    name: mosdac-ai
+    app.kubernetes.io/name: mosdac-ai-navigator
+    app.kubernetes.io/component: namespace
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: kubernetes
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: mosdac-ai-quota
+  namespace: mosdac-ai
+spec:
+  hard:
+    requests.cpu: "20"
+    requests.memory: 64Gi
+    limits.cpu: "40"
+    limits.memory: 128Gi
+    persistentvolumeclaims: "20"
+    services: "20"
+    secrets: "50"
+    configmaps: "50"
+    count/pods: "100"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: mosdac-ai-limit-range
+  namespace: mosdac-ai
+spec:
+  limits:
+  - default:
+      memory: "2Gi"
+      cpu: "1"
+    defaultRequest:
+      memory: "512Mi"
+      cpu: "250m"
+    type: Container
+  - max:
+      memory: "8Gi"
+      cpu: "4"
+    min:
+      memory: "100Mi"
+      cpu: "100m"
+    type: Container
