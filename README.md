@@ -27,6 +27,10 @@ An intelligent AI-powered chatbot for querying and retrieving information from t
                        │   OpenAI/FAISS) │
                        └─────────────────┘
 ```
+![WhatsApp Image 2025-07-09 at 19 54 42](https://github.com/user-attachments/assets/fac458bf-ea5c-46c1-9e06-a6446c52abe7)
+<img width="1024" height="1536" alt="process flow diagram" src="https://github.com/user-attachments/assets/db1cbea6-ebd5-4adb-a364-056882ccff5d" />
+<img width="1024" height="1536" alt="Arch_Diagram" src="https://github.com/user-attachments/assets/ae2dcbfb-fdff-49ed-a83a-a3874bd6bd09" />
+<img width="1024" height="1024" alt="TeamPic" src="https://github.com/user-attachments/assets/abf0b004-e11d-4fa8-ac0c-6922638a934d" />
 
 ## 📦 Installation
 
